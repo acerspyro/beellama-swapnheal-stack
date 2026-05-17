@@ -1,0 +1,36 @@
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - open-webui
+    restart: always
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    environment:
+      - OPENAI_API_BASE_URL=http://llama-swap:8000/v1
+      - OPENAI_API_KEY=llama-swap
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      - llama-swap
+    restart: always
+
+  llama-swap:
+    build:
+      context: llama-swap
+      args:
+        - GPU_ARCH=gfx1030
+    environment:
+      - ROC_ENABLE_PREEMPTION=1
+#      - HSA_OVERRIDE_GFX_VERSION=10.3.0
+#      - HIP_VISIBLE_DEVICES=0
+    volumes:
+      - ./llama-swap/config.yaml:/app/config.yaml
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    restart: always
+
+volumes:
+  open-webui-data:
