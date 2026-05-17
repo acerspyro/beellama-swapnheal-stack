@@ -1,0 +1,37 @@
+listen: "0.0.0.0:8000"
+startTimeout: 300
+idleTimeout: 600
+logToStdout: "both"
+
+models:
+  qwen-logic:
+    cmd: >
+      llama-server
+      -hf unsloth/Qwen3.6-35B-A3B-GGUF:UD-IQ4_NL_XL
+      -hfd abhinand/Qwen3.6-35B-A3B-DFlash-GGUF:Q4_K_M
+      --no-mmap
+      --spec-type dflash
+      --spec-draft-n-max 6
+      --port ${PORT}
+      --flash-attn auto
+      -c 65536
+      --cache-type-k turbo4
+      --cache-type-v turbo4
+      --reasoning on
+    ttl: 600 # Keep in VRAM for 10 mins (Reasoning is slow to reload)
+
+  gemma-tools:
+    cmd: >
+      llama-server
+      -hf unsloth/gemma-4-26B-A4B-it-GGUF:Q5_K_XL
+      --port ${PORT}
+      --flash-attn auto
+      -c 32768
+      --no-mmproj-offload
+      --no-mmap
+      -fitt 2000
+      --n-cpu-moe 15
+      --cache-type-k turbo4
+      --cache-type-v turbo4
+      --reasoning off
+    ttl: 300 # Swaps out faster once the task is done

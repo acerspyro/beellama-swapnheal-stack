@@ -1,0 +1,53 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "transportType": "stdio"
+    },
+    "github": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "transportType": "stdio"
+    },
+    "firecrawl-mcp": {
+      "enabled": true,
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {
+        "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
+      }
+    },
+    "tavily-search": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.tavily.com/mcp/?tavilyApiKey=$TAVILY_API_KEY"
+      ],
+      "transportType": "stdio"
+    },
+    "deepwiki": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.deepwiki.com/mcp"
+      ],
+      "transportType": "stdio"
+    }
+  }
+}

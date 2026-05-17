@@ -1,21 +1,26 @@
 services:
   nginx:
-    build: ./nginx
+    image: nginx:alpine
     ports:
       - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - open-webui
+      - tool-healing
+      - mcp-proxy
     restart: always
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     environment:
-      - OPENAI_API_BASE_URL=http://llama-swap:8000/v1
+      - OPENAI_API_BASE_URL=http://tool-healing:8081/v1
       - OPENAI_API_KEY=llama-swap
     volumes:
       - open-webui-data:/app/backend/data
     depends_on:
       - llama-swap
+      - tool-healing
     restart: always
 
   llama-swap:
@@ -27,9 +32,47 @@ services:
       - ROC_ENABLE_PREEMPTION=1
 #      - HSA_OVERRIDE_GFX_VERSION=10.3.0
 #      - HIP_VISIBLE_DEVICES=0
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
-      - ./llama-swap/config.yaml:/app/config.yaml
+      - ./llama-swap/llama-swap.yaml:/app/llama-swap.yaml
       - ~/.cache/huggingface:/root/.cache/huggingface
+    restart: always
+
+  # Tool-healing FastAPI proxy in front of llama-swap
+  tool-healing:
+    build:
+      context: ./tool-healing
+    environment:
+      - UPSTREAM_URL=http://llama-swap:8080
+      - HOST=0.0.0.0
+      - PORT=8081
+    depends_on:
+      - llama-swap
+    ports:
+      - "8081:8081"
+    restart: always
+
+  # MCP Gateway to centralize MCP tool servers and route via the same OpenAI-compatible proxy
+  mcp-proxy:
+    build:
+      context: mcp-proxy
+    environment:
+      # Used by tools that call embeddings via your OpenAI-compatible proxy (if any)
+      - OPENAI_API_BASE_URL=http://tool-healing:8081/v1
+      - OPENAI_API_KEY=llama-swap
+    env_file:
+      - .env
+    volumes:
+      - ./mcp-proxy/servers.json:/app/servers.json:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - tool-healing
     restart: always
 
 volumes:

@@ -3,8 +3,16 @@
 # ==========================================
 FROM rocm/dev-ubuntu-24.04:7.2.3-complete AS builder
 
+ARG TARGETOS
+ARG TARGETARCH
+
 # Set non-interactive apt installs
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Install NodeJS 24
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+RUN apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
+
 
 # Install build dependencies including Go for llama-swap
 RUN apt-get update && apt-get install -y \
@@ -13,20 +21,28 @@ RUN apt-get update && apt-get install -y \
     git \
     wget \
     golang \
+    libssl-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
-# 1. Clone and build BeeLlama with ROCm
-RUN git clone https://github.com/Anbeeld/beellama.cpp.git && \
-    cd beellama.cpp && \
-    cmake -B build -DGGML_HIP=ON -DAMDGPU_TARGETS=${GPU_ARCH} -DGGML_NATIVE=ON && \
-    cmake --build build -j$(nproc)
+# 1. Clone BeeLlama and llama-swap
+RUN git clone --depth 1 --branch v0.1.2 https://github.com/Anbeeld/beellama.cpp.git
+RUN git clone --depth 1 --branch v216 https://github.com/mostlygeek/llama-swap.git
 
-# 2. Clone and build llama-swap (mostlygeek/llama-swap)
-RUN git clone https://github.com/mostlygeek/llama-swap.git && \
-    cd llama-swap && \
-    go build -o /build/llama-swap-bin main.go
+
+# 2. Build BeeLlama with ROCm
+RUN cmake -S beellama.cpp -B beellama.cpp/build \
+    -DGGML_HIP=ON \
+    -DAMDGPU_TARGETS=${GPU_ARCH} \
+    -DLLAMA_OPENSSL=ON \
+    -DGGML_NATIVE=ON
+RUN cmake --build beellama.cpp/build -j$(nproc)
+
+# 3. Build llama-swap (mostlygeek/llama-swap)
+RUN cd llama-swap && make all
+RUN cp "/build/llama-swap/build/llama-swap-${TARGETOS}-${TARGETARCH}" /build/llama-swap-bin
 
 # ==========================================
 # Stage 2: Final Runtime Image
@@ -37,12 +53,14 @@ WORKDIR /app
 
 # Copy compiled binaries from the builder stage
 # (Assuming beellama-server is generated in build/bin or build directory)
-COPY --from=builder /build/beellama.cpp/build/bin/beellama-server /usr/local/bin/beellama-server
+COPY --from=builder /build/beellama.cpp/build/bin/llama-server /usr/local/bin/llama-server
+COPY --from=builder /build/beellama.cpp/build/bin/lib*.so* /usr/local/lib/
 COPY --from=builder /build/llama-swap-bin /usr/local/bin/llama-swap
+RUN ldconfig
 
 RUN mkdir -p /root/.cache/huggingface
 
 EXPOSE 8080
 
 # Start llama-swap pointing to the baked-in config
-ENTRYPOINT ["llama-swap", "-config", "/app/llama-swap.yaml", "-port", "8080"]
+ENTRYPOINT ["llama-swap", "-config", "/app/llama-swap.yaml", "-listen", "0.0.0.0:8080"]

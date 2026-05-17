@@ -56,8 +56,17 @@ Modern models (especially Qwen/Gemma) often try to answer from memory to be "hel
 - Use `qwen-logic` for the initial plan, then switch to `gemma-tools` for execution.
 ```
 
-## 4. Troubleshooting Tool Use
+## 4. Python Environment
 
-*   **Model Switching**: Ensure that tool-heavy requests are routed to `gemma-tools`. Qwen with reasoning enabled sometimes "thinks" too much and forgets to call tools.
-*   **Tool Definitions**: Verify that the tool definitions are being passed in the `tools` array of the OpenAI API request.
-*   **Temperature**: If the agent is too conservative, increase `temperature` to `0.7` or `0.8` to encourage tool exploration.
+To ensure stability and avoid conflicts with the host system, this project uses a dedicated virtual environment.
+
+- **Virtual Environment**: Always use the `.venv` located in the project root.
+- **Strict Requirement**: NEVER use `--break-system-packages` with `pip`. If a package is missing, install it within the `.venv`.
+- **Activation**: Ensure your execution environment points to `.venv/bin/python` or `.venv/bin/pip`.
+
+## 5. Maintenance: Tool Healing Feature Parity
+
+To guarantee feature parity with the official Unsloth implementation, this project depends on the full `unsloth` package.
+
+- **Dependency**: The `unsloth` package is included in `tool-healing/requirements.txt`.
+- **Logic**: Tool healing logic is imported from `studio.backend.core.tool_healing`.
